@@ -15,8 +15,12 @@ case class Pokemon(
 
 case class PokemonType(name: String) extends AnyVal
 case class PokemonStats(hp: Int, speed: Int)
-case class BasicAttack(name: String, `type`: String, damage: Int)
-case class PowerAttack(name: String, `type`: String, damage: Int, cost: Int)
+
+sealed trait Attack {
+  val damage: Int
+}
+case class BasicAttack(name: String, `type`: String, damage: Int) extends Attack
+case class PowerAttack(name: String, `type`: String, damage: Int, cost: Int) extends Attack
 
 trait PokemonDecoder {
   import io.circe.generic.semiauto._
