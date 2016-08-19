@@ -2,7 +2,7 @@ package pkm
 
 
 import pkm.data.Pokedex
-import pkm.models.{Arene, Dresseur, Pokemon, RandomIA}
+import pkm.models.{Arena, Trainer, Pokemon, RandomIA}
 
 import scala.util.Random
 
@@ -17,13 +17,24 @@ object Main extends App {
     (0 until 5).map(i => Pokedex.pokemons(Random.nextInt(Pokedex.pokemons.length)))
   }
 
-  val dresseurA = Dresseur(500, 0, generatePokemons(), new RandomIA)
-  val dresseurB = Dresseur(500, 0, generatePokemons(), new RandomIA)
+  def gameFinished(arena: Arena) = arena.trainerA.isDead || arena.trainerB.isDead
 
+  def prounceWinner(arena: Arena): Unit = {
+    //TODO case when a and b ar dead
+    if (arena.trainerA.isDead()) println(arena.trainerB.name+" wins")
+    println(arena.trainerA.name+" wins")
+  }
 
-  val arene = new Arene(dresseurA, dresseurB)
-  arene.gameLoop()
+  def gameLoop(arena : Arena): Unit = {
 
+    val newArena = arena.update()
+    gameFinished(newArena) match {
+      case false => gameLoop(newArena)
+      case true => prounceWinner(newArena)
+    }
+  }
 
-
+  val trainerA = Trainer("Red", 500, 0, generatePokemons(), new RandomIA)
+  val trainerB = Trainer("Blue", 500, 0, generatePokemons(), new RandomIA)
+  gameLoop(Arena(trainerA, trainerB))
 }

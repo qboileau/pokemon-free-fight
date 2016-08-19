@@ -4,7 +4,7 @@ import scala.util.Random
 
 abstract class IA {
   def sortPokemons(pokemons: Seq[Pokemon]): Seq[Pokemon]
-  def choiceAction(dresseur: Dresseur): Action
+  def choiceAction(trainer: Trainer, arena: Arena): Action
 
 }
 
@@ -14,20 +14,20 @@ class RandomIA extends IA {
     pokemons
   }
 
-  override def choiceAction(dresseur: Dresseur): Action = {
-    dresseur.firstAlivePokemon() match {
+  override def choiceAction(trainer: Trainer, arena: Arena): Action = {
+    trainer.firstAlivePokemon() match {
       case Some(pkm) => {
         Random.nextInt(3) match {
-          case 0 => AtkDresseur(rdmAttack(dresseur, pkm))
-          case 1 => AtkPokemon(rdmAttack(dresseur, pkm))
-          case 2 => Defense()
+          case 0 => AtkTrainer(rdmAttack(trainer, pkm))
+          case 1 => AtkPokemon(rdmAttack(trainer, pkm))
+          case 2 => Defense
         }
       }
-      case None => Nothing()
+      case None => Nothing
   }
 
-  def rdmAttack(dresseur: Dresseur, pokemon: Pokemon): Attack = {
-      if (dresseur.rage >= pokemon.powerAttack.cost) {
+  def rdmAttack(trainer: Trainer, pokemon: Pokemon): Attack = {
+      if (trainer.rage >= pokemon.powerAttack.cost) {
         Random.nextInt(2) match {
           case 0 => pokemon.powerAttack
           case 1 => pokemon.basicAttack
@@ -39,7 +39,7 @@ class RandomIA extends IA {
 }
 
 sealed trait Action
-case class AtkDresseur(attack: Attack) extends Action
+case class AtkTrainer(attack: Attack) extends Action
 case class AtkPokemon(attack: Attack) extends Action
-case class Defense() extends Action
-case class Nothing() extends Action
+case object Defense extends Action
+case object Nothing extends Action
