@@ -3,7 +3,7 @@ package pkm.models
 /**
  * Created by quentin on 12/08/16.
  */
-case class Arena(trainerA: Trainer, trainerB: Trainer) {
+case class Arena(trainerA: Trainer, trainerB: Trainer, defenceRate: Int = 25, counterAtkRate: Int = 50, healRate: Int = 10) {
 
   private def withDefence(action: Action) = {
     action match {
@@ -13,7 +13,7 @@ case class Arena(trainerA: Trainer, trainerB: Trainer) {
   }
 
   private def computeDmg(baseDamage: Int, withDefence: Boolean, decreasePercent: Int): Int = {
-    if (withDefence) baseDamage - (baseDamage * decreasePercent / 100)
+    if (withDefence) baseDamage * decreasePercent / 100
     else baseDamage
   }
 
@@ -21,40 +21,73 @@ case class Arena(trainerA: Trainer, trainerB: Trainer) {
     victim.copy(life = victim.life - dmg)
   }
 
-  private def pokemonAttacked(victim: Trainer, victimPokemon: Option[Pokemon], dmg: Int): Trainer = {
-    def updatePokemon(pokemon: Pokemon, p: Pokemon): Pokemon = {
-      if (p.number == pokemon.number) p.copy(stats = p.stats.copy(hp = Math.max(0, p.stats.hp - dmg))) else p
-    }
-    victimPokemon match {
-      case Some(attackedPokemon) =>
-        val updatePokemons = victim.pokemons.map(p => updatePokemon(attackedPokemon, p))
-        victim.copy(pokemons = updatePokemons)
+  private def updateTrainerPokemons(trainer: Trainer, update: Pokemon => Pokemon): Trainer =  {
+    trainer.firstAlivePokemon() match {
+      case Some(firstPokemon) =>
+        trainer.copy(pokemons = trainer.pokemons.map(p => if (p.number == firstPokemon.number) update(firstPokemon) else p))
     }
   }
 
+  private def pokemonAttacked(victim: Trainer, dmg: Int): Trainer = {
+    def attak(pokemon: Pokemon): Pokemon = {
+      pokemon.copy(stats = pokemon.stats.copy(hp = Math.max(0, pokemon.stats.hp - dmg)))
+    }
+    updateTrainerPokemons(victim, attak)
+  }
+
+  /* regen 10% hp */
+  def heal(trainer: Trainer): Trainer = {
+    def heal(pokemon: Pokemon): Pokemon = {
+      pokemon.copy(stats = pokemon.stats.copy(hp = Math.max(0, pokemon.stats.hp + (pokemon.stats.hp * healRate / 100))))
+    }
+
+    updateTrainerPokemons(trainer, heal)
+  }
+
+  def countered(victim: Trainer, damage: Int): Trainer = {
+    victim.copy(life = victim.life -  (damage * counterAtkRate / 100))
+  }
 
   def update(): Arena = {
-
-    val pokemonA = trainerA.firstAlivePokemon()
-    val pokemonB = trainerB.firstAlivePokemon()
 
     val actionA = trainerA.action(this)
     val actionB = trainerB.action(this)
 
-    val newTrainerA = actionB match {
-      case AtkTrainer(atk) => trainerAttacked(trainerA, computeDmg(atk.damage, withDefence(actionA), 25))
-      case AtkPokemon(atk) => pokemonAttacked(trainerA, pokemonA, computeDmg(atk.damage, withDefence(actionA), 25))
-      case Defense => trainerA
+    (actionA, actionB) match {
+      case (AtkTrainer(atkA), AtkTrainer(atkB)) =>
+        this.copy(
+          trainerA = trainerAttacked(trainerA, computeDmg(atkB.damage, false, defenceRate)),
+          trainerB = trainerAttacked(trainerB, computeDmg(atkA.damage, false, defenceRate)))
+
+      case (AtkPokemon(atkA), AtkPokemon(atkB)) => this.copy(
+        trainerA = pokemonAttacked(trainerA, computeDmg(atkB.damage, false, defenceRate)),
+        trainerB = pokemonAttacked(trainerB, computeDmg(atkA.damage, false, defenceRate)))
+
+      case (AtkTrainer(atkA), AtkPokemon(atkB)) => this.copy(
+        trainerA = pokemonAttacked(trainerA, computeDmg(atkB.damage, false, defenceRate)),
+        trainerB = trainerAttacked(trainerB, computeDmg(atkA.damage, false, defenceRate)))
+
+      case (AtkPokemon(atkA), AtkTrainer(atkB)) => this.copy(
+        trainerA = trainerAttacked(trainerA, computeDmg(atkB.damage, false, defenceRate)),
+        trainerB = pokemonAttacked(trainerB, computeDmg(atkA.damage, false, defenceRate)))
+
+      case (AtkPokemon(atkA), Defense) => this.copy(
+        trainerB = pokemonAttacked(trainerB, computeDmg(atkA.damage, true, defenceRate)))
+
+      case (Defense, AtkPokemon(atkB)) => this.copy(
+        trainerA = pokemonAttacked(trainerA, computeDmg(atkB.damage, true, defenceRate)))
+
+      case (AtkTrainer(atkA), Defense) =>  this.copy(
+        trainerA = countered(trainerA, atkA.damage),
+        trainerB = trainerAttacked(trainerB, computeDmg(atkA.damage, false, defenceRate)))
+
+      case (Defense, AtkTrainer(atkB)) => this.copy(
+        trainerA = trainerAttacked(trainerA, computeDmg(atkB.damage, false, defenceRate)),
+        trainerB = countered(trainerB, atkB.damage))
+
+      case (Defense, Defense) => this.copy(trainerA = heal(trainerA), trainerB = heal(trainerB))
     }
 
-    val newTrainerB = actionA match {
-      case AtkTrainer(atk) => trainerAttacked(trainerB, computeDmg(atk.damage, withDefence(actionB), 25))
-      case AtkPokemon(atk) => pokemonAttacked(trainerB, pokemonB, computeDmg(atk.damage, withDefence(actionB), 25))
-      case Defense => trainerB
-    }
-
-    // TODO update victim rage
-    this.copy(trainerA = newTrainerA, trainerB = newTrainerB)
   }
 
 }

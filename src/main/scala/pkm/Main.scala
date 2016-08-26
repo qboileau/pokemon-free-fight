@@ -29,8 +29,8 @@ object Main extends App {
 
     val newArena = arena.update()
     gameFinished(newArena) match {
-      case false => gameLoop(newArena)
       case true => prounceWinner(newArena)
+      case false => gameLoop(newArena)
     }
   }
 
